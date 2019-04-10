@@ -73,7 +73,6 @@ def get_final_result(output_results):
     '''
     THIS FUNCTION IS DESIGNED FOR OUTPUT THE FINAL RESULT ACCORDING THE IMAGE AND VIDEO CLASSIFICAITON OUTPUT RESUTLS
     '''
-    
     # COUNT THAT HOW MANY YES AND NO IN THE OUTPUT RESUTL
     count_y = 0
     count_n = 0
@@ -134,7 +133,6 @@ def driver_test():
     2.read image and video data
     3.process data and return the result to the client
     '''
-    
     # transform data from the client into json data
     data = request.get_json()
     input_type = data['type']
@@ -154,6 +152,7 @@ def driver_test():
     
     for v_url in video:
         video_images = video_process(v_url.encode("utf-8"))
+        print video_images
         for image in video_images:
             video_result_num = img_judgement(image)
             video_result = type_judgement(video_result_num,input_type)

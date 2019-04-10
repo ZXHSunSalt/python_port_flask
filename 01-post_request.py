@@ -9,7 +9,8 @@ import json
 
 def post():
     url = "http://127.0.0.1:1234/"
-    values = { "type":["smoke"],
+    values = { "id": "1234",
+               "type":["smoke"],
                "pics":['http://img.rr95.com/remote/21221505806535.jpg',
                        'http://www.gx8899.com.img.800cdn.com/uploads/allimg/2018030309/tmokzgmp0cv.jpg',
                        'https://i.zgjm.org/uploads/allimg/150923/145031DG-0.png'],

@@ -1,4 +1,8 @@
 eclipse.preferences.version=1
+encoding//ActiveMQ/01-post.py=utf-8
+encoding//ActiveMQ/01-test_stomp.py=utf-8
+encoding//flask_demo/flask_test_start_step.py=utf-8
+encoding//flask_demo/json_response.py=utf-8
 encoding/01-flask_sever.py=utf-8
 encoding/01-post_request.py=utf-8
 encoding/<project>=UTF-8

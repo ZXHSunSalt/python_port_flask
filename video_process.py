@@ -9,6 +9,7 @@ import cv2
 import numpy as np
 import sys
 import os
+import time
 
 caffe_root='D:\\caffe\\caffe-master'
 sys.path.insert(0,caffe_root+'python')
@@ -44,7 +45,7 @@ def video_process(video_full_path,EXTRACT_FREQUENCY):
                 net.blobs["data"].data[...] = transformer.preprocess("data", frame)
                 output = net.forward()
                 output_prob = output['prob'][0].argmax()
-                video_result_num.qppend(output_prob) 
+                video_result_num.append(output_prob) 
         else:
             break
         count += 1
@@ -53,5 +54,7 @@ def video_process(video_full_path,EXTRACT_FREQUENCY):
     return  video_img
 
 if __name__ == '__main__':
+    start = time.clock()
     video_img = video_process(video_full_path,EXTRACT_FREQUENCY)
-    print len(video_img)
+    end = time.clock()
+    print 'TIME USED:%.3f:'%(end-start)
