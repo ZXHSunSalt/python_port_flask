@@ -114,18 +114,23 @@ class Listener1(object):
             2\RETURN ALL THE DATA
     '''
     def on_message(self, headers, message1):
+        # transform json data to dict type
         message = json.loads(message1.decode('utf-8'))
+        
+        # get relevant params
         id = message['id']
         type = message['type']
         pics = message['pics']
         video = message['video']
         video_img_list = []
-        for v_url in video:
-            video_images = self.video_process(v_url)
-            for img in video_images:
-                video_img_list.append(img)
-
-            
+        
+#         # transform video into images and save images
+#         for v_url in video:
+#             video_images = self.video_process(v_url)
+#             for img in video_images:
+#                 video_img_list.append(img)
+        
+        # define the param of listener1 which will be sent to queue2
         listener1_value = {"id":id,\
                            "type":type,\
                            "pics":pics,\
@@ -165,6 +170,9 @@ class Listener1(object):
         return  video_img
 
 class Listener2(object):
+    '''
+    FUNCTION: RECEIVE DATA FROM QUEUE1 AND CLASSIFY THE DATA,FINALLY, SEND THE CLASSIFICAITON RESULT TO QUEUE3
+    '''
     def on_message(self, headers, message2): 
         results = []
         message = json.loads(message2)
@@ -174,6 +182,7 @@ class Listener2(object):
         pics = message['pics']
 #         video_images = message['video_images']
 #         print message
+
         # do some process for image
         for pic in pics:
             # transform unicode type data into str
@@ -263,6 +272,9 @@ class Listener2(object):
         return result,output_type
     
 class Listener3(object):
+    '''
+    FUNCITON: RECEIVE PIC AND PICS OF VIDEO'S RESULTS, GET THE FINAL RESULTS  
+    '''
     def on_message(self, headers, message3): 
         message = json.loads(message3)
 
@@ -330,6 +342,7 @@ class Listener3(object):
         elif output_type == "other":
             count_5 += 1
         counts = [count_0,count_1,count_2,count_3,count_4,count_5]
+        # get the index of the maxmium value in counts
         out_index = np.array(counts).argmax()
         final_output_type =  type_dict[out_index]
         return final_output_type
