@@ -36,8 +36,8 @@ queue_name3 = 'Queue3'
 listener_name3 = 'Listener3'
 ## define the post port
 post=61613
+# address = 'shiptest.jinhx.cn'
 address = '192.168.1.135'
-
 ## set a stomp Connection
 # conn = stomp.Connection10([(address,post)])
     
@@ -124,54 +124,56 @@ class Listener1(object):
     '''
     def on_message(self, headers, message1):
         # transform json data to dict type
-        
-#         print message1
-
-#         print headers
-#         msg = message1.replace("'","")
-        message = json.loads(message1)
-         
-        # get relevant params
-        id = message['id']
-        guid = message['guid']
-        creat_time = message['creat_time']
-        type = message['type']
-        pics = message['pics']
-        video = message['video']
-        video_img_list = []
-        i = 0
-        new_path = path+guid+'/'
-        
-        fileList = []
-        if not os.path.exists(new_path):
-            os.makedirs(new_path)
-        for pic in pics:
-            fileList.append(pic)
-            url = pic.encode("utf-8")
-            img = io.imread(url)
-            cv2.imwrite(new_path+type+str(i)+'.jpg',img)
-            i += 1
-        # transform video into images and save images
-        for v_url in video:
-            fileList.append(v_url)
-            video_images = self.video_process(v_url)
-            for img in video_images:
-                cv2.imwrite(new_path+type+str(i)+'.jpg',img)
-                i +=1
-
-        # define the param of listener1 which will be sent to queue2
-        listener1_value = {"id":id,\
-                           "guid":guid,\
-                           "creat_time":creat_time,\
-                           "type":type,\
-                           
-                           "pic_addr":new_path
-                }
-        out1 = json.dumps(listener1_value)
-#         send_to_queue2(conn,out1)
-        send_to_queue2(out1)
-        print 'QUEUE1 SUCCESSD'
+        try:
+            message = json.loads(message1)
+            # get relevant params
+            id = message['id']
+            guid = message['guid']
+            creat_time = message['creat_time']
+            type = message['type']
+            pics = message['pics']
+            video = message['video']
+            video_img_list = []
+            i = 0
+            new_path = path+guid+'/'
+            p_count = len(pics)
+            v_count = len(pics)
+            count = p_count + v_count
+            fileList = []
+            if not os.path.exists(new_path):
+                os.makedirs(new_path)
             
+            for pic in pics:
+                fileList.append(pic)
+                url = pic.encode("utf-8")
+                img = io.imread(url)
+                cv2.imwrite(new_path+type+str(i)+'.jpg',img)
+                i += 1
+    
+        # transform video into images and save images
+            for v_url in video:
+                fileList.append(v_url)
+                video_images = self.video_process(v_url)
+                for img in video_images:
+                    cv2.imwrite(new_path+type+str(i)+'.jpg',img)
+                    i +=1
+            
+        
+
+            # define the param of listener1 which will be sent to queue2
+            listener1_value = {"id":id,\
+                               "guid":guid,\
+                               "creat_time":creat_time,\
+                               "type":type,\
+                               "count":count,\
+                               "pic_addr":new_path
+                    }
+            out1 = json.dumps(listener1_value)
+    #         send_to_queue2(conn,out1)
+            send_to_queue2(out1)
+            print 'QUEUE1 SUCCESSD'
+        except:
+            pass
     def video_process(self,video_full_path):
         '''
         This function is designed for getting video image and return a list of image in the video
@@ -216,7 +218,7 @@ class Listener2(object):
         creat_time = message['creat_time']
         input_type = message['type']
         pic_addr = message['pic_addr']
-        
+        count =message['count']
         img_lists = os.listdir(pic_addr)
 
         # do some process for image
@@ -232,14 +234,20 @@ class Listener2(object):
             
         final_result = self.get_final_result(results)
         final_output_type = self.get_final_type(output_type_list)
-
-        listener_value = {'id':id,
+        if count == 0:
+            listener_value = {'id':id,
                           'creat_time':creat_time,
                       'input_type':input_type,
                       'results':final_result,
-                      'output_type':final_output_type
-#                     'video_images':new_img
             }
+        else:
+            listener_value = {'id':id,
+                              'creat_time':creat_time,
+                          'input_type':input_type,
+                          'results':final_result,
+                          'output_type':final_output_type
+    #                     'video_images':new_img
+                }
         final_out = json.dumps(listener_value)
 #         send_to_queue3(conn,message2)
 #         print final_out
@@ -322,16 +330,19 @@ class Listener2(object):
         # COUNT THAT HOW MANY YES AND NO IN THE OUTPUT RESUTL
         count_y = 0
         count_n = 0
-        for each in output_results:
-            if each == "yes":
-                count_y += 1
-            else:
-                count_n += 1
-        
-        if count_y >= count_n:
-            final_result = 'yes'
+        if len(output_results) == 0:
+            final_result = 'data is null'
         else:
-            final_result = 'no'
+            for each in output_results:
+                if each == "yes":
+                    count_y += 1
+                else:
+                    count_n += 1
+            
+            if count_y >= count_n:
+                final_result = 'yes'
+            else:
+                final_result = 'no'
         return final_result
     
     def get_final_type(self,output_type):
@@ -374,26 +385,32 @@ class Listener3(object):
 #     receive_from_queue2()
     def on_message(self, headers, msg): 
         
-        print msg,headers
-        print type(msg)
+        print msg
         print 'QUEUE3 SUCCESED'
         
 
 if __name__ == '__main__':
+#     values = '{ "id": "1234567",\
+#                 "guid":"123",\
+#                 "type":"smoke",\
+#                 "creat_time":"12:12",\
+#                 "pics":["http://img.rr95.com/remote/21221505806535.jpg",\
+#                        "http://www.gx8899.com.img.800cdn.com/uploads/allimg/2018030309/tmokzgmp0cv.jpg",\
+#                        "https://i.zgjm.org/uploads/allimg/150923/145031DG-0.png"],\
+#                 "video":["http://qnmov.a.yximgs.com/upic/2018/06/06/12/BMjAxODA2MDYxMjQwMTZfMTkzMDUyMjRfNjU2NzMwNzI5MF8xXzM=_hd3_Bc143c8abf799984d2cc75a52de7039f0.mp4"]\
+#     }'
     values = '{ "id": "1234567",\
                 "guid":"123",\
                 "type":"smoke",\
                 "creat_time":"12:12",\
-                "pics":["http://img.rr95.com/remote/21221505806535.jpg",\
-                       "http://www.gx8899.com.img.800cdn.com/uploads/allimg/2018030309/tmokzgmp0cv.jpg",\
-                       "https://i.zgjm.org/uploads/allimg/150923/145031DG-0.png"],\
-                "video":["http://qnmov.a.yximgs.com/upic/2018/06/06/12/BMjAxODA2MDYxMjQwMTZfMTkzMDUyMjRfNjU2NzMwNzI5MF8xXzM=_hd3_Bc143c8abf799984d2cc75a52de7039f0.mp4"]\
+                "pics":[],\
+                "video":[]\
     }'
-    send_to_queue1(values)
+#     send_to_queue1(values)
 #      
     conn1 = receive_from_queue1()
     conn2 = receive_from_queue2()
-    conn3 = receive_from_queue3()
+#     conn3 = receive_from_queue3()
      
     while True: ##TODO:modified the condition of exit
         time.sleep(5)
