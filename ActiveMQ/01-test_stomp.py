@@ -62,18 +62,18 @@ def receive_from_queue1():
     conn.start()
     conn.connect('admin','admin',wait=True)
     conn.subscribe(queue_name1)
-    time.sleep(1) # secs
-    conn.disconnect()
+    return conn
+    
 
 # def send_to_queue2(conn,listener1_value):
-def send_to_queue2(listener1_value):
+def send_to_queue2(out1):
     '''
     FUNCTION:SEND MESSAGE TO QUEUE2
     '''
     conn = stomp.Connection10([(address,post)])
     conn.start()
     conn.connect('admin','admin',wait=True)
-    conn.send(queue_name2,listener1_value)
+    conn.send(queue_name2,out1)
     conn.disconnect()
         
 # def receive_from_queue2(conn):
@@ -87,19 +87,22 @@ def receive_from_queue2():
     conn.start()
     conn.connect('admin','admin',wait=True)
     conn.subscribe(queue_name2)
-    time.sleep(1) # secs
-    conn.disconnect()
+    return conn
 
 # def send_to_queue3(conn,listener2_value):
-def send_to_queue3(listener2_value):
+def send_to_queue3(final_out):
     '''
     FUNCITON:SEND MESSAGES TO QUEUE3
     '''
+    ## the parameters of auto_content_length is used for which type is defined to send --textMessage of bytesMessage
+#     conn = stomp.Connection10([(address,post)],auto_content_length=False)
     conn = stomp.Connection10([(address,post)])
     conn.start()
-    conn.connect('admin','admin',wait=True)
-    conn.send(queue_name3,listener2_value)
-    conn.disconnect()
+#     conn.connect('admin','admin',wait=True)
+    conn.connect()
+    conn.send(queue_name3,final_out)
+    time.sleep(5)
+#     conn.disconnect()
         
 # def receive_from_queue3(conn):
 def receive_from_queue3():
@@ -111,50 +114,62 @@ def receive_from_queue3():
     conn.start()
     conn.connect('admin','admin',wait=True)
     conn.subscribe(queue_name3)
-    time.sleep(1) # secs
-    conn.disconnect()
+    return conn
 
 class Listener1(object):
     '''
     FUNCTION: DEFINE A LISTENER CLASS FOR QUEUE1
-            1\GET THE CLIENT MESSAGE-ID,TYPE,PICS,IMAGES OF VIDEO
-            2\RETURN ALL THE DATA
+            1.GET THE CLIENT MESSAGE-ID,TYPE,PICS,IMAGES OF VIDEO
+            2.RETURN ALL THE DATA
     '''
     def on_message(self, headers, message1):
         # transform json data to dict type
-        message = json.loads(message1.decode('utf-8'))
         
+#         print message1
+
+#         print headers
+#         msg = message1.replace("'","")
+        message = json.loads(message1)
+         
         # get relevant params
         id = message['id']
+        guid = message['guid']
+        creat_time = message['creat_time']
         type = message['type']
         pics = message['pics']
         video = message['video']
         video_img_list = []
         i = 0
+        new_path = path+guid+'/'
         
-        if not os.path.exists(path):
-            os.makedirs(path)
+        fileList = []
+        if not os.path.exists(new_path):
+            os.makedirs(new_path)
         for pic in pics:
+            fileList.append(pic)
             url = pic.encode("utf-8")
             img = io.imread(url)
-            cv2.imwrite(path+type+str(i)+'.jpg',img)
+            cv2.imwrite(new_path+type+str(i)+'.jpg',img)
             i += 1
         # transform video into images and save images
         for v_url in video:
+            fileList.append(v_url)
             video_images = self.video_process(v_url)
             for img in video_images:
-                cv2.imwrite(path+type+str(i)+'.jpg',img)
+                cv2.imwrite(new_path+type+str(i)+'.jpg',img)
                 i +=1
+
         # define the param of listener1 which will be sent to queue2
         listener1_value = {"id":id,\
+                           "guid":guid,\
+                           "creat_time":creat_time,\
                            "type":type,\
-                           "pic_addr":path
+                           
+                           "pic_addr":new_path
                 }
         out1 = json.dumps(listener1_value)
-        
 #         send_to_queue2(conn,out1)
         send_to_queue2(out1)
-        print out1
         print 'QUEUE1 SUCCESSD'
             
     def video_process(self,video_full_path):
@@ -189,13 +204,16 @@ class Listener2(object):
     '''
     FUNCTION: RECEIVE DATA FROM QUEUE1 AND CLASSIFY THE DATA,FINALLY, SEND THE CLASSIFICAITON RESULT TO QUEUE3
     '''
-    receive_from_queue1()
-    def on_message(self, headers, message2): 
+#     receive_from_queue1()
+    def on_message(self, headers, msg): 
+        
         results = []
         output_type_list = []
-        message = json.loads(message2)
+        message = json.loads(msg.encode('utf-8'))
 
         id = message['id']
+        guid = message['guid']
+        creat_time = message['creat_time']
         input_type = message['type']
         pic_addr = message['pic_addr']
         
@@ -216,18 +234,22 @@ class Listener2(object):
         final_output_type = self.get_final_type(output_type_list)
 
         listener_value = {'id':id,
+                          'creat_time':creat_time,
                       'input_type':input_type,
                       'results':final_result,
                       'output_type':final_output_type
 #                     'video_images':new_img
             }
         final_out = json.dumps(listener_value)
-        
 #         send_to_queue3(conn,message2)
-        send_to_queue3(final_out)
-        if os.path.exists(path):
-            shutil.rmtree(path)
+#         print final_out
+#         print type(final_out)
         print 'QUEUE2 SUCCESED'
+        send_to_queue3(final_out)
+        new_path = path+guid+'/'
+        if os.path.exists(new_path):
+            shutil.rmtree(new_path)
+        
     
     def img_judgement(self,pic):
         '''
@@ -341,34 +363,45 @@ class Listener2(object):
         # get the index of the maxmium value in counts
         out_index = np.array(counts).argmax()
         final_output_type =  type_dict[out_index]
+        
         return final_output_type
     
-#     def remove_files(self):
         
 class Listener3(object):
     '''
     FUNCITON: RECEIVE PIC AND PICS OF VIDEO'S RESULTS, GET THE FINAL RESULTS  
     '''
-    receive_from_queue2()
-    def on_message(self, headers, message3): 
-        message = json.loads(message3)
-        print message3
+#     receive_from_queue2()
+    def on_message(self, headers, msg): 
+        
+        print msg,headers
+        print type(msg)
         print 'QUEUE3 SUCCESED'
         
-    
+
 if __name__ == '__main__':
     values = '{ "id": "1234567",\
+                "guid":"123",\
                 "type":"smoke",\
+                "creat_time":"12:12",\
                 "pics":["http://img.rr95.com/remote/21221505806535.jpg",\
                        "http://www.gx8899.com.img.800cdn.com/uploads/allimg/2018030309/tmokzgmp0cv.jpg",\
                        "https://i.zgjm.org/uploads/allimg/150923/145031DG-0.png"],\
                 "video":["http://qnmov.a.yximgs.com/upic/2018/06/06/12/BMjAxODA2MDYxMjQwMTZfMTkzMDUyMjRfNjU2NzMwNzI5MF8xXzM=_hd3_Bc143c8abf799984d2cc75a52de7039f0.mp4"]\
     }'
-    
     send_to_queue1(values)
-#     receive_from_queue1()
-#     receive_from_queue2()
-    receive_from_queue3()
+#      
+    conn1 = receive_from_queue1()
+    conn2 = receive_from_queue2()
+    conn3 = receive_from_queue3()
+     
+    while True: ##TODO:modified the condition of exit
+        time.sleep(5)
+    
+    conn1.disconnect()
+    conn2.disconnect()
+    conn3.disconnect()
+#     receive_from_queue3()
 #     send_to_queue1(conn,values)
 #     receive_from_queue1(conn)
 #     receive_from_queue2(conn)
